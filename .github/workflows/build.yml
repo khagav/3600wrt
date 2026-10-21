@@ -252,7 +252,6 @@ jobs:
             etc/uci-defaults/98-tr3600-extras \
             etc/uci-defaults/99-tr3600-defaults \
             etc/hotplug.d/net/25-tr3600-usb-tether \
-            etc/hotplug.d/net/30-tr3600-usb-lan \
             etc/hotplug.d/iface/20-tr3600-hnat \
             etc/init.d/tr3600-4g-wwatch \
             etc/init.d/tr3600-tuning \

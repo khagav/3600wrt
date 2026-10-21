@@ -21,7 +21,6 @@
 | 風扇恆全速、不受控 | Kwrt DTS 把 pwm-fan 掛在 **PWM1 + `pwm1_pins`（PIN7，與 JTAG 共用）**，實機風扇在 **PWM0@PIN13**。掛錯時驅動照樣 bind、`cur_state` 照樣動（會騙人），但 PWM0 從未被 claim | `zz-tr3600-fixes.patch` 改成 `pwms = <&pwm 0 50000 0>` + `pinctrl-0 = <&pwm_pins>` |
 | 風扇 idle 也在轉 | `mt7987.dtsi` 把 **40 °C** 對到 fan level 1 → 只要 >40 °C 就 50 % 常轉 | 曲線改 **68 / 78 / 88 °C**，`cooling-levels = <0 128 200 255>`；`luci-app-fan` 的 `on_temp` 同步改 68 |
 | USB 4G 網卡插上沒網路 | Kwrt 沒有 `/lib/network/wwan/<vid>:<pid>` profile，hotplug 第一行就 `exit 0`；映像也沒有 usbnet kmod | `.config` 加全套 usbnet kmod；`uci-defaults` 建 `network.tether`；`hotplug.d/net` 綁實際 netdev |
-| 內建 LAN 口燒壞 | 硬體只有 2 個網口（eth0=WAN / eth1=LAN），沒有第 3 個可補 | `kmod-usb-net-r8152` + `kmod-usb-net-asix`；`30-tr3600-usb-lan` 把有線 USB 網卡橋進 `br-lan`（明確排除 4G 用的 cdc_ether/rndis/qmi） |
 | 升完固件 LuCI 版面錯亂 | Kwrt nginx 對 `/luci-static/` 不送 `Cache-Control`，vantage 的 cache-buster 又綁死主題版本 `?v=1.0.4` | uci-defaults 冪等加 `Cache-Control: no-cache` |
 | `target/linux` 編譯失敗（mkimage `.its` 錯誤） | `CONFIG_TARGET_PER_DEVICE_ROOTFS=y` 讓未選中的 netgear 裝置產生空 rootfs 節點 | `.config` 設 `n`；`01-tr3600-netgear-rootfs-guard.patch` 雙保險 |
 
@@ -40,7 +39,7 @@
 ### 功能
 
 - **首啟設置向導**：全新刷機後打開 `https://192.168.1.1/` 會被導向向導，設定**管理員密碼**與 **Wi-Fi（SSID + 密碼）**，完成後自動消失。
-- **Wi-Fi 合一**：2.4G / 5G 共用同一個 SSID，預設 `wrt` / `3600wrt1234`（WPA2-PSK，6 GHz 自動用 WPA3-SAE）。
+- **Wi-Fi 合一**：2.4G / 5G 共用同一個 SSID，預設 `wrt` / `w1relessc0de`（WPA2-PSK，6 GHz 自動用 WPA3-SAE）。
 - **MAC 更換**：`tr3600-mac` 改 WAN / Wi-Fi MAC（random / set / reset），寫入 UCI 持久化。
 - **4G 自癒看門狗**：重撥 → USB 重枚舉（`usb3en` 斷電或 unbind/bind）→ 選配重啟。
 - **NAS / VPN / DNS**：WireGuard、OpenVPN、ZeroTier、Samba4、minidlna、stubby(DoT)、DDNS、UPnP、umdns、autoreboot。
@@ -64,7 +63,7 @@ files/                               # 整棵樹複製進 image 的 base-files
 │   └── 99-tr3600-defaults      # 風扇 on_temp、tether、nginx no-cache、DNS 快取、向導 pending
 ├── etc/hotplug.d/
 │   ├── iface/20-tr3600-hnat    # WAN/tether ifup 時重開 PPE hook
-│   └── net/{25-usb-tether,30-usb-lan}
+│   └── net/25-usb-tether
 ├── etc/init.d/
 │   ├── tr3600-4g-wwatch        # 每分鐘跑看門狗
 │   └── tr3600-tuning           # 開機套用 IRQ 綁核
@@ -77,8 +76,8 @@ files/                               # 整棵樹複製進 image 的 base-files
 ```
 
 `files/` 用**完整 rootfs 路徑**（`files/etc/...`、`files/usr/...`），workflow 直接
-`cp -a files/. <base-files>/`，並在編譯前檢查 16 個關鍵檔案都存在——舊 workflow 手寫
-`install` 兩個檔案，導致後來新增的看門狗與 USB-LAN 根本沒進 image。
+`cp -a files/. <base-files>/`，並在編譯前檢查 15 個關鍵檔案都存在——舊 workflow 手寫
+`install` 兩個檔案，導致後來新增的 4G 看門狗根本沒進 image。
 
 ---
 
@@ -105,7 +104,7 @@ sysupgrade -n /tmp/fw.bin      # 全新刷機（清 /etc，會觸發向導）
 
 ### 首次開機
 
-1. 電腦接 LAN（或連預設 Wi-Fi `wrt` / `3600wrt1234`）。
+1. 電腦接 LAN（或連預設 Wi-Fi `wrt` / `w1relessc0de`）。
 2. 瀏覽器打開 `https://192.168.1.1/` → 自動跳到**設置向導**。
 3. 首次登入：用戶名 `root`，密碼**留空**（映像裡 root 無密碼）。
 4. 設定管理員密碼（≥8 位）與 Wi-Fi → 完成後導向 LuCI 總覽。

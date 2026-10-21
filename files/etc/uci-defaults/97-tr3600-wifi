@@ -15,7 +15,7 @@
 [ "$(cat /tmp/sysinfo/board_name 2>/dev/null)" = "cudy,tr3600-v1" ] || exit 0
 
 DEFAULT_SSID='wrt'
-DEFAULT_KEY='3600wrt1234'
+DEFAULT_KEY='w1relessc0de'
 
 # Generate the wireless config if this is a truly fresh flash.
 [ -f /etc/config/wireless ] || wifi config >/dev/null 2>&1
