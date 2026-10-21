@@ -59,7 +59,7 @@ o.datatype = "minlength(8)"
 
 o = s:option(Value, "ssid", translate("Wi-Fi 名稱 (SSID)"),
 	translate("2.4G / 5G 使用同一個名稱。"))
-o.default = cur_ssid or "3600wrt"
+o.default = cur_ssid or "wrt"
 o.rmempty = false
 o.datatype = "maxlength(32)"
 

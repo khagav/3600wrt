@@ -14,7 +14,7 @@
 [ -f /tmp/sysinfo/board_name ] || exit 0
 [ "$(cat /tmp/sysinfo/board_name 2>/dev/null)" = "cudy,tr3600-v1" ] || exit 0
 
-DEFAULT_SSID='3600wrt'
+DEFAULT_SSID='wrt'
 DEFAULT_KEY='3600wrt1234'
 
 # Generate the wireless config if this is a truly fresh flash.

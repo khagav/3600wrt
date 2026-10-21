@@ -40,7 +40,7 @@
 ### 功能
 
 - **首啟設置向導**：全新刷機後打開 `https://192.168.1.1/` 會被導向向導，設定**管理員密碼**與 **Wi-Fi（SSID + 密碼）**，完成後自動消失。
-- **Wi-Fi 合一**：2.4G / 5G 共用同一個 SSID，預設 `3600wrt` / `3600wrt1234`（WPA2-PSK，6 GHz 自動用 WPA3-SAE）。
+- **Wi-Fi 合一**：2.4G / 5G 共用同一個 SSID，預設 `wrt` / `3600wrt1234`（WPA2-PSK，6 GHz 自動用 WPA3-SAE）。
 - **MAC 更換**：`tr3600-mac` 改 WAN / Wi-Fi MAC（random / set / reset），寫入 UCI 持久化。
 - **4G 自癒看門狗**：重撥 → USB 重枚舉（`usb3en` 斷電或 unbind/bind）→ 選配重啟。
 - **NAS / VPN / DNS**：WireGuard、OpenVPN、ZeroTier、Samba4、minidlna、stubby(DoT)、DDNS、UPnP、umdns、autoreboot。
@@ -105,7 +105,7 @@ sysupgrade -n /tmp/fw.bin      # 全新刷機（清 /etc，會觸發向導）
 
 ### 首次開機
 
-1. 電腦接 LAN（或連預設 Wi-Fi `3600wrt` / `3600wrt1234`）。
+1. 電腦接 LAN（或連預設 Wi-Fi `wrt` / `3600wrt1234`）。
 2. 瀏覽器打開 `https://192.168.1.1/` → 自動跳到**設置向導**。
 3. 首次登入：用戶名 `root`，密碼**留空**（映像裡 root 無密碼）。
 4. 設定管理員密碼（≥8 位）與 Wi-Fi → 完成後導向 LuCI 總覽。
