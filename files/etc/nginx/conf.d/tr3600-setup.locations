@@ -1,0 +1,16 @@
+# 3600wrt: first-run redirect.
+#
+# Included by the nginx "_lan" server block (see `list include 'conf.d/*.locations'`
+# in /etc/config/nginx).  Replaces the stock /www/index.html meta-refresh with a
+# real 302, so a freshly flashed router lands on the setup wizard instead of an
+# unconfigured LuCI.
+#
+# /etc/tr3600-setup-pending is created by /etc/uci-defaults/99-tr3600-defaults
+# and removed by the wizard once the admin password and Wi-Fi are set.
+
+location = / {
+	if (-f /etc/tr3600-setup-pending) {
+		return 302 /cgi-bin/luci/admin/tr3600-setup;
+	}
+	return 302 /cgi-bin/luci/;
+}

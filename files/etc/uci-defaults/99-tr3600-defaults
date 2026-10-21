@@ -1,0 +1,135 @@
+#!/bin/sh
+#
+# Cudy TR3600 v1 board defaults for the Kwrt (openwrt.ai) build.
+# Runs once on first boot of every newly flashed image.
+
+[ -f /tmp/sysinfo/board_name ] || exit 0
+[ "$(cat /tmp/sysinfo/board_name)" = "cudy,tr3600-v1" ] || exit 0
+
+# ---------------------------------------------------------------------------
+# Fan: keep the LuCI fan app in sync with the DTS thermal ramp.
+#
+# /usr/libexec/fan-control (shipped by luci-app-fan, started by
+# /etc/init.d/luci-fan at S20) finds the LOWEST writable active trip point of
+# the fan thermal zone and overwrites its temperature with on_temp from
+# /etc/config/luci-fan - on every single boot.  The stock default is 58 C,
+# which would silently undo the 68 C first step in our DTS and leave the fan
+# running at 50 % whenever the board is above 58 C, i.e. at idle.
+#
+# Setting on_temp to 68 C makes the rewrite a no-op.  off_temp is only used to
+# compute the hysteresis; trip_point_N_hyst is read-only once the trip has
+# been used, so that write fails harmlessly either way.
+# ---------------------------------------------------------------------------
+if uci -q get luci-fan.@luci-fan[0] >/dev/null; then
+	uci -q set luci-fan.@luci-fan[0].enabled='1'
+	uci -q set luci-fan.@luci-fan[0].on_temp='68'
+	uci -q set luci-fan.@luci-fan[0].off_temp='63'
+	uci -q commit luci-fan
+fi
+
+# ---------------------------------------------------------------------------
+# USB cellular dongle.
+#
+# Kwrt ships no /lib/network/wwan/<vid>:<pid> profile for these devices, so
+# /etc/hotplug.d/usb/00_wwan.sh exits on its very first test and the dongle
+# never gets an interface: no DHCP, no default route, no NAT.
+#
+# netifd tracks device hotplug itself, so a plain dhcp interface bound to the
+# dongle's netdev is enough - it comes up when the device appears and recovers
+# on its own after a link drop.  The netdev name depends on enumeration order,
+# so /etc/hotplug.d/net/25-tr3600-usb-tether re-points it whenever a USB
+# ethernet device shows up.
+# ---------------------------------------------------------------------------
+if ! uci -q get network.tether >/dev/null; then
+	uci -q set network.tether=interface
+	uci -q set network.tether.proto='dhcp'
+	uci -q set network.tether.force_link='0'
+	uci -q set network.tether.metric='30'
+	uci -q set network.tether.peerdns='1'
+	uci -q set network.tether.defaultroute='1'
+	uci -q set network.tether.device='eth2'
+	uci -q commit network
+fi
+
+# Put it in the (masqueraded) wan zone, but only once.
+i=0
+while uci -q get "firewall.@zone[$i]" >/dev/null; do
+	if [ "$(uci -q get "firewall.@zone[$i].name")" = "wan" ]; then
+		case " $(uci -q get "firewall.@zone[$i].network") " in
+			*" tether "*)
+				;;
+			*)
+				uci -q add_list "firewall.@zone[$i].network=tether"
+				uci -q commit firewall
+				;;
+		esac
+		break
+	fi
+	i=$((i + 1))
+done
+
+# ---------------------------------------------------------------------------
+# LuCI static assets: make the browser revalidate.
+#
+# Kwrt's nginx serves /luci-static/ with no Cache-Control header at all, so
+# browsers fall back to heuristic freshness (RFC 9111: ~10 % of the age since
+# Last-Modified).  luci-theme-vantage pins its cache-buster to the THEME
+# version - cbi.js and vantage.css are requested as "?v=1.0.4" and that URL
+# never changes even when luci-base is rebuilt.  The two together mean a
+# browser can keep running a previous build's CSS/JS for hours, which shows up
+# as a page whose layout is subtly wrong right after a firmware upgrade.
+#
+# "no-cache" still allows storing the response; it only forces an ETag
+# revalidation, which is a cheap 304 on a LAN.
+# ---------------------------------------------------------------------------
+LUCI_LOC=/etc/nginx/conf.d/luci.locations
+if [ -f "$LUCI_LOC" ] && ! grep -q 'tr3600-nocache' "$LUCI_LOC"; then
+	awk '
+		/^[ \t]*location[ \t]+\/luci-static/ { want = 1 }
+		want && /\{/ {
+			print
+			print "\t\t# tr3600-nocache: force ETag revalidation of theme assets"
+			print "\t\tadd_header Cache-Control \"no-cache\";"
+			want = 0
+			next
+		}
+		{ print }
+	' "$LUCI_LOC" > "$LUCI_LOC.new"
+	if grep -q 'tr3600-nocache' "$LUCI_LOC.new"; then
+		mv "$LUCI_LOC.new" "$LUCI_LOC"
+	else
+		rm -f "$LUCI_LOC.new"
+	fi
+	# nginx starts after uci-defaults, so a reload is only needed when this
+	# script is re-run by hand on a live system.
+	[ -x /etc/init.d/nginx ] && /etc/init.d/nginx reload >/dev/null 2>&1
+fi
+
+# ---------------------------------------------------------------------------
+# DNS cache: OpenWrt defaults to 1000 entries, which thrashes on a busy LAN
+# (and with stubby/DoT in front the upstream round trip is not free).
+# ---------------------------------------------------------------------------
+if uci -q get dhcp.@dnsmasq[0] >/dev/null; then
+	cur=$(uci -q get dhcp.@dnsmasq[0].cachesize)
+	case "$cur" in ''|*[!0-9]*) cur=0 ;; esac
+	if [ "$cur" -lt 10000 ]; then
+		uci -q set dhcp.@dnsmasq[0].cachesize='10000'
+		uci -q commit dhcp
+	fi
+fi
+
+# ---------------------------------------------------------------------------
+# First-run setup wizard.
+#
+# While /etc/tr3600-setup-pending exists, nginx redirects "/" to the wizard
+# (LuCI -> 設置向導), which sets the admin password and the Wi-Fi credentials
+# and then removes this file.  A fresh flash therefore always lands on the
+# wizard instead of an unconfigured router.
+# ---------------------------------------------------------------------------
+if [ "$(uci -q get tr3600.setup.done)" != "1" ]; then
+	touch /etc/tr3600-setup-pending
+else
+	rm -f /etc/tr3600-setup-pending
+fi
+
+exit 0
